@@ -59,7 +59,7 @@ def select_random_from(items, tags, choices=1, superset_only=False):
 
     # ensuring selection possible
     if len(values) == 0:
-        return set()
+        return list()
     if len(values) < choices:
         choices = len(values)
 
