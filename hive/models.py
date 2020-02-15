@@ -16,7 +16,7 @@ class Hive(Model):
 
 class Group(Model):
     """An abstract form of grouping, to represent membership"""
-    name = models.CharField(max_length=100, blank=False, null=False, unique=True)
+    name = models.ForeignKey(NameContent, on_delete=models.SET_NULL, related_name='groups', null=True)
 
     def __str__(self):
         return self.name
