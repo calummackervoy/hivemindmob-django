@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'content.apps.ContentConfig',
     'hive.apps.HiveConfig',
+    'scene.apps.SceneConfig',
     'djangoldp.apps.DjangoldpConfig',
 ]
 
