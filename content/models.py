@@ -35,6 +35,18 @@ def list_intersection(list_a, list_b):
     return list(set(list_a) & set(list_b))
 
 
+def _filter_items_without_any_tags(items, tags):
+    """auxiliary function removes items which do not have any of the parameterised tags"""
+    # achieve this using the set intersection operator
+    return set(v for v in items if len(set(v.tags.all().values_list('tag')) & set(tags.values_list('pk'))) > 0)
+
+
+def _filter_items_without_all_tags(items, strict_tags):
+    """auxiliary function removes items which do not have all of the parameterised tags"""
+    # achieve this using the set difference operator
+    return set(v for v in items if len(set(strict_tags.values_list('pk')) - set(v.tags.all().values_list('tag'))) == 0)
+
+
 def select_random_from(items, tags=None, choices=1, superset_only=False):
     """
     takes a set of items and selects random item which has the correct tags
@@ -58,18 +70,15 @@ def select_random_from(items, tags=None, choices=1, superset_only=False):
 
     # build a set of values containing one or more of the target tags
     if tags is not None:
-        # sets values to a set of all items containing _any_ of the target tags
-        values = set(v for v in items if len(set(v.tags.all().values_list('tag')) & set(tags.values_list('pk'))) > 0)
+        values = _filter_items_without_any_tags(items, tags)
 
         # all tags should be considered strict
         if superset_only:
-            # sets values to a set containing items which contain _all_ of the target tags
-            values = set(v for v in values if len(set(tags.values_list('pk')) - set(v.tags.all().values_list('tag'))) == 0)
+            values = _filter_items_without_all_tags(values, tags)
         # some tags will still be labelled as strict
         else:
             strict_tags = tags.filter(strict=True)
-            values = set(
-                v for v in values if len(set(strict_tags.values_list('pk')) - set(v.tags.all().values_list('tag'))) == 0)
+            values = _filter_items_without_all_tags(values, strict_tags)
     else:
         values = items
 
