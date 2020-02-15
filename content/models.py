@@ -24,6 +24,7 @@ class Tag(Model):
     """tag applied to content to mark it with semantics for content generation"""
     name = models.CharField(max_length=50, null=False, blank=False, unique=True)
     type = models.CharField(max_length=16, choices=TagType.choices(), default=TagType.Misc)
+    strict = models.BooleanField(default=False, help_text='if True then the Tag will _always_ require strict adherence in generation (if it is requested, it must apply)')
 
     def __str__(self):
         return self.name + " (" + self.type + ")"
@@ -37,12 +38,13 @@ def list_intersection(list_a, list_b):
 def select_random_from(items, tags=None, choices=1, superset_only=False):
     """
     takes a set of items and selects random item which has the correct tags
-    @:param items: QuerySet of values to select from
+    @:param items: QuerySet of values to select from. Can be any object which has a `tags` attribute
     @:param tags: QuerySet of tags to use in selection. None indicates all Tags should match
     @:param choices: the number of values to select. Note that there may be no values matching
             query, or less than the desired selection
     @:param superset_only: if True, only items which have _all_ of the target tags will be selected
-            if False, items which have > 0 matching tags will be selected
+            if False, items which have > 0 matching tags will be selected. Note that in either case,
+            tags passed which have `strict` set will be required
 
     @:return a list containing a random selection according to passed parameters
     """
@@ -56,10 +58,18 @@ def select_random_from(items, tags=None, choices=1, superset_only=False):
 
     # build a set of values containing one or more of the target tags
     if tags is not None:
+        # sets values to a set of all items containing _any_ of the target tags
         values = set(v for v in items if len(set(v.tags.all().values_list('tag')) & set(tags.values_list('pk'))) > 0)
 
+        # all tags should be considered strict
         if superset_only:
-            values = set(v for v in values if len(set(v.tags.all().values_list('tag')) - set(tags.values_list('pk'))) == 0)
+            # sets values to a set containing items which contain _all_ of the target tags
+            values = set(v for v in values if len(set(tags.values_list('pk')) - set(v.tags.all().values_list('tag'))) == 0)
+        # some tags will still be labelled as strict
+        else:
+            strict_tags = tags.filter(strict=True)
+            values = set(
+                v for v in values if len(set(strict_tags.values_list('pk')) - set(v.tags.all().values_list('tag'))) == 0)
     else:
         values = items
 

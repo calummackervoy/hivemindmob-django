@@ -3,8 +3,8 @@ from content.models import NameContent, Tag, TagType, ContentTag, select_random_
 
 
 class GeneratorTestCase(APITestCase):
-    def _generate_and_append_tag(self, name, type=TagType.Misc):
-        t = Tag(name=name, type=type)
+    def _generate_and_append_tag(self, name, type=TagType.Misc, strict=False):
+        t = Tag(name=name, type=type, strict=strict)
         t.save()
         self.tags.append(t)
 
@@ -20,11 +20,13 @@ class GeneratorTestCase(APITestCase):
         self._generate_and_append_tag('English', TagType.Culture)
         self._generate_and_append_tag('Welsh', TagType.Culture)
         self._generate_and_append_tag('French', TagType.Culture)
+        self._generate_and_append_tag('Actor Name', TagType.Misc, True)
 
-        self._generate_name_content('William', [self.tags[0]])
-        self._generate_name_content('Daffyd', [self.tags[1]])
-        self._generate_name_content('Guillame', [self.tags[2]])
-        self._generate_name_content('Calum', [])
+        self._generate_name_content('William', [self.tags[0], self.tags[3]])
+        self._generate_name_content('Daffyd', [self.tags[1], self.tags[3]])
+        self._generate_name_content('Guillame', [self.tags[2], self.tags[3]])
+        self._generate_name_content('Calum', [self.tags[3]])
+        self._generate_name_content('The Jolly Fisherman', [self.tags[0]])
 
     # select_random_from
     # single choice
@@ -51,6 +53,7 @@ class GeneratorTestCase(APITestCase):
         tags = Tag.objects.filter(name='English')
 
         english_names = NameContent.objects.filter(tags__tag__name='English')
+        english_names = english_names.filter(tags__tag__name='Actor Name')
         self.assertEqual(len(english_names), 1)
 
         selection = select_random_from(NameContent.objects.all(), tags, superset_only=True)
@@ -67,4 +70,24 @@ class GeneratorTestCase(APITestCase):
         tags = Tag.objects.filter(name=t.name)
 
         selection = select_random_from(NameContent.objects.all(), tags, superset_only=True)
+        self.assertEqual(len(selection), 0)
+
+    # test that strict tags are always applied
+    def test_strict_tag_application(self):
+        self.setUpTags()
+
+        # test that when there are two options I select the actor name
+        tags = Tag.objects.filter(name='Actor Name')
+        items = NameContent.objects.filter(tags__tag__name='English')
+        self.assertEqual(len(tags), 1)
+        self.assertEqual(len(items), 2)
+        selection = select_random_from(items, tags, choices=1)
+        self.assertEqual(len(selection), 1)
+        self.assertTrue(isinstance(selection[0], NameContent))
+        self.assertEqual(selection[0].name, 'William')
+
+        # test that when there is one option, but it's not an actor name, I don't select it
+        items = items.filter(name='The Jolly Fisherman')
+        self.assertEqual(len(items), 1)
+        selection = select_random_from(items, tags, choices=1)
         self.assertEqual(len(selection), 0)
